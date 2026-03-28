@@ -17,6 +17,7 @@ class ShipmentInput(BaseModel):
     shipment_type: str = Field(description="Fragile, bulk, standard, etc.")
     departure_time: datetime
     deadline: datetime
+    priorities: List[str] = Field(default_factory=list)
 
 class IntelligentShipmentInput(BaseModel):
     user_email: str
@@ -26,6 +27,7 @@ class IntelligentShipmentInput(BaseModel):
     shipment_type: str
     departure_time: str
     deadline: str
+    priorities: List[str] = Field(default_factory=list)
 
 class Option(BaseModel):
     mode: str

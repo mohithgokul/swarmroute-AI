@@ -14,7 +14,7 @@ export interface Shipment {
   shipmentType: string;
   departureTime: string;
   deliveryDeadline: string;
-  priority: Priority;
+  priorities: Priority[];
   status: ShipmentStatus;
   riskScore: number;
   progress: number; // 0-100

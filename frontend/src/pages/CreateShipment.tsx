@@ -29,7 +29,7 @@ const CreateShipment = () => {
     shipmentType: '',
     departureTime: '',
     deliveryDeadline: '',
-    priority: 'speed' as Priority,
+    priorities: ['speed'] as Priority[],
   });
 
   // No longer used, using intelligent endpoint below
@@ -74,7 +74,8 @@ const CreateShipment = () => {
         mode: form.transportMode,
         shipment_type: form.shipmentType || 'General',
         departure_time: safeIsoDate(form.departureTime),
-        deadline: safeIsoDate(form.deliveryDeadline)
+        deadline: safeIsoDate(form.deliveryDeadline),
+        priorities: form.priorities
       };
 
       const res = await fetch("http://localhost:8000/api/shipments/intelligent", {
@@ -88,9 +89,9 @@ const CreateShipment = () => {
       setStep(PROCESSING_STEPS.length - 1);
 
       if (!data || !data.source_parsed || !data.destination_parsed) {
-         setProcessing(false);
-         alert("Failed to parse locations intelligently.");
-         return;
+        setProcessing(false);
+        alert("Failed to parse locations intelligently.");
+        return;
       }
 
       const srcGeo = data.source_parsed;
@@ -121,7 +122,7 @@ const CreateShipment = () => {
         sourceCoords: srcCoords, destCoords: destCoords,
         transportMode: form.transportMode, shipmentType: form.shipmentType || 'General',
         departureTime: form.departureTime, deliveryDeadline: form.deliveryDeadline,
-        priority: form.priority, status: 'in-transit', riskScore: Math.round((data.composite_risk_score || 0.18) * 100),
+        priorities: form.priorities, status: 'in-transit', riskScore: Math.round((data.composite_risk_score || 0.18) * 100),
         progress: 0, eta: 'Calculating...', routes, activeRouteIndex: 0,
       });
 
@@ -226,18 +227,36 @@ const CreateShipment = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Optimization Priority</label>
+            <label className="text-xs font-medium text-muted-foreground">Optimization Priority (Click in order of preference)</label>
             <div className="flex gap-3">
-              {(['cost', 'speed', 'safety'] as Priority[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setForm({ ...form, priority: p })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${form.priority === p ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-secondary/30 border-border text-muted-foreground hover:border-primary/30'}`}
-                >
-                  {p === 'cost' ? '💰' : p === 'speed' ? '⚡' : '🛡️'} {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
+              {(['cost', 'speed', 'safety'] as Priority[]).map((p) => {
+                const index = form.priorities.indexOf(p);
+                const isSelected = index !== -1;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => {
+                      let newPriorities = [...form.priorities];
+                      if (isSelected) {
+                        newPriorities = newPriorities.filter(item => item !== p);
+                        if (newPriorities.length === 0) newPriorities = ['speed'];
+                      } else {
+                        newPriorities.push(p);
+                      }
+                      setForm({ ...form, priorities: newPriorities });
+                    }}
+                    className={`relative flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${isSelected ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-secondary/30 border-border text-muted-foreground hover:border-primary/30'}`}
+                  >
+                    {isSelected && (
+                      <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold">
+                        {index + 1}
+                      </span>
+                    )}
+                    {p === 'cost' ? '💰' : p === 'speed' ? '⚡' : '🛡️'} {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

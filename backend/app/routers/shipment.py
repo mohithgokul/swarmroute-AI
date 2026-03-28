@@ -114,7 +114,8 @@ async def create_intelligent_shipment(data: IntelligentShipmentInput):
         mode=data.mode,
         shipment_type=data.shipment_type,
         departure_time=dep_time,
-        deadline=deadline
+        deadline=deadline,
+        priorities=data.priorities
     )
     
     result = swarm.process_shipment(shipment)
@@ -124,3 +125,4 @@ async def create_intelligent_shipment(data: IntelligentShipmentInput):
     result["destination_parsed"] = parsed["destination"]
     
     return RouteResult(**result)
+    
