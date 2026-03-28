@@ -157,3 +157,48 @@ Respond ONLY in this exact JSON format, no markdown:
         return {"reroute": bool(result.get("reroute", False)), "reason": result.get("reason", "")}
     except Exception:
         return {"reroute": fallback_reroute, "reason": "AI parse fallback — threshold logic applied"}
+
+def plan_shipment_context(source: str, destination: str, departure: str, deadline: str, mode: str) -> dict:
+    """ Uses Gemini to extract and properly geocode origin and destination using context. """
+    import urllib.parse
+    prompt = f"""You are a logistics global geocoder. 
+Given the following shipment details:
+Source: {source}
+Destination: {destination}
+Mode: {mode}
+
+Identify the precise city, country, and approximate latitude/longitude for both locations. 
+Respond ONLY in this exact JSON format (no markdown, no backticks, no extra text):
+{{
+  "source": {{"city": "CityName", "country": "CountryName", "lat": 0.0, "lon": 0.0}},
+  "destination": {{"city": "CityName", "country": "CountryName", "lat": 0.0, "lon": 0.0}}
+}}"""
+    
+    raw = ask_gemini(prompt, "")
+    try:
+        clean = raw.replace("```json", "").replace("```", "").strip()
+        result = json.loads(clean)
+        if "source" in result and "destination" in result:
+            return result
+    except Exception:
+        pass
+        
+    # Free OpenStreetMap Geocoding Fallback if Gemini is unavailable
+    def fetch_nom(q):
+        try:
+            url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=1&accept-language=en"
+            req = urllib.request.Request(url, headers={"User-Agent": "SwarmRouteAI-Local/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                if data:
+                    display_name = data[0].get("display_name", "")
+                    country = display_name.split(",")[-1].strip() if "," in display_name else "India"
+                    return {"city": data[0].get("name", q), "country": country, "lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+        except Exception:
+            pass
+        return {"city": q, "country": "Unknown", "lat": 0.0, "lon": 0.0}
+
+    return {
+        "source": fetch_nom(source),
+        "destination": fetch_nom(destination)
+    }

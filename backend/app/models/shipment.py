@@ -17,6 +17,15 @@ class ShipmentInput(BaseModel):
     departure_time: datetime
     deadline: datetime
 
+class IntelligentShipmentInput(BaseModel):
+    user_email: str
+    source_query: str
+    destination_query: str
+    mode: str
+    shipment_type: str
+    departure_time: str
+    deadline: str
+
 class Option(BaseModel):
     mode: str
     cost: float
@@ -33,3 +42,5 @@ class RouteResult(BaseModel):
     transport_options: List[Option]
     routes: List[dict] = Field(default_factory=list)
     status: str
+    source_parsed: Optional[Location] = None
+    destination_parsed: Optional[Location] = None

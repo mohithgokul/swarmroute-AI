@@ -80,3 +80,44 @@ def get_shipments(user_email: str = ""):
 async def create_shipment(shipment: ShipmentInput):
     result = swarm.process_shipment(shipment)
     return RouteResult(**result)
+
+from app.models.shipment import IntelligentShipmentInput
+
+@router.post("/intelligent", response_model=RouteResult)
+async def create_intelligent_shipment(data: IntelligentShipmentInput):
+    from app.services.ai import plan_shipment_context
+    from datetime import datetime
+    from app.models.shipment import Location, ShipmentInput
+
+    parsed = plan_shipment_context(
+        data.source_query, 
+        data.destination_query, 
+        data.departure_time, 
+        data.deadline, 
+        data.mode
+    )
+    
+    try:
+        dep_time = datetime.fromisoformat(data.departure_time.replace('Z', '+00:00'))
+        deadline = datetime.fromisoformat(data.deadline.replace('Z', '+00:00'))
+    except Exception:
+        dep_time = datetime.now()
+        deadline = datetime.now()
+
+    shipment = ShipmentInput(
+        user_email=data.user_email,
+        source=Location(**parsed["source"]),
+        destination=Location(**parsed["destination"]),
+        mode=data.mode,
+        shipment_type=data.shipment_type,
+        departure_time=dep_time,
+        deadline=deadline
+    )
+    
+    result = swarm.process_shipment(shipment)
+    
+    # Attach parsed locations back for the frontend to use
+    result["source_parsed"] = parsed["source"]
+    result["destination_parsed"] = parsed["destination"]
+    
+    return RouteResult(**result)

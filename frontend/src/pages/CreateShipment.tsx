@@ -32,17 +32,8 @@ const CreateShipment = () => {
     priority: 'speed' as Priority,
   });
 
-  // Geocode a city name via the backend API
+  // No longer used, using intelligent endpoint below
   const geocode = async (cityName: string) => {
-    try {
-      const res = await fetch(`http://localhost:8000/api/geocode?q=${encodeURIComponent(cityName)}`);
-      const data = await res.json();
-      if (data.lat && data.lon) {
-        return data; // { lat, lon, city, country, display }
-      }
-    } catch (e) {
-      console.error("Geocode error:", e);
-    }
     return null;
   };
 
@@ -66,43 +57,18 @@ const CreateShipment = () => {
         }
       }, 600);
 
-      // Step 1: Geocode both locations via AI-powered backend
-      const [srcGeo, destGeo] = await Promise.all([
-        geocode(form.source),
-        geocode(form.destination)
-      ]);
-
-      if (!srcGeo || !destGeo) {
-        clearInterval(interval);
-        alert("Could not resolve one or both city names. Please check spelling.");
-        setProcessing(false);
-        return;
-      }
-
-      const srcCoords: [number, number] = [srcGeo.lat, srcGeo.lon];
-      const destCoords: [number, number] = [destGeo.lat, destGeo.lon];
-
+      // intelligent single API call to Gemini powered endpoint
       const payload = {
         user_email: useStore.getState().user?.email || "anonymous@swarmroute.ai",
-        source: {
-          city: srcGeo.city || form.source,
-          country: srcGeo.country || "Unknown",
-          lat: srcGeo.lat,
-          lon: srcGeo.lon
-        },
-        destination: {
-          city: destGeo.city || form.destination,
-          country: destGeo.country || "Unknown",
-          lat: destGeo.lat,
-          lon: destGeo.lon
-        },
+        source_query: form.source,
+        destination_query: form.destination,
         mode: form.transportMode,
         shipment_type: form.shipmentType || 'General',
         departure_time: new Date(form.departureTime || Date.now()).toISOString(),
         deadline: new Date(form.deliveryDeadline || Date.now()).toISOString()
       };
 
-      const res = await fetch("http://localhost:8000/api/shipments/", {
+      const res = await fetch("http://localhost:8000/api/shipments/intelligent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -111,6 +77,18 @@ const CreateShipment = () => {
       const data = await res.json();
       clearInterval(interval);
       setStep(PROCESSING_STEPS.length - 1);
+
+      if (!data || !data.source_parsed || !data.destination_parsed) {
+         setProcessing(false);
+         alert("Failed to parse locations intelligently.");
+         return;
+      }
+
+      const srcGeo = data.source_parsed;
+      const destGeo = data.destination_parsed;
+
+      const srcCoords: [number, number] = [srcGeo.lat || 0, srcGeo.lon || 0];
+      const destCoords: [number, number] = [destGeo.lat || 0, destGeo.lon || 0];
 
       const routes = data.routes?.map((r: any, idx: number) => ({
         id: r.route_id,
@@ -126,8 +104,8 @@ const CreateShipment = () => {
 
       const id = data.shipment_id || `SWR-${String(Math.floor(Math.random() * 900) + 100)}`;
 
-      const displaySource = srcGeo.display || form.source;
-      const displayDest = destGeo.display || form.destination;
+      const displaySource = srcGeo.display || `${srcGeo.city}, ${srcGeo.country}`;
+      const displayDest = destGeo.display || `${destGeo.city}, ${destGeo.country}`;
 
       addShipment({
         id, source: displaySource, destination: displayDest,
