@@ -34,12 +34,4 @@ def get_risk(lat=51.51, lon=-0.13):
             print(f"⚠️ TomTom Traffic API Error / Fallback Triggered: {e}")
             pass 
             
-    # Intelligent simulation if API key is not mapped
-    scenarios = [
-        (0.1, "Traffic flowing normally along primary route"),
-        (0.4, "Moderate congestion ahead on inter-state highway"),
-        (0.75, "Avoided severe gridlock via fast alternative block 🚦"),
-        (0.9, "Major accident reported, road blocked 🚧")
-    ]
-    choice = random.choice(scenarios)
-    return {"module": "Traffic", "risk_score": choice[0], "explanation": choice[1]}
+    return {"module": "Traffic", "risk_score": 0.5, "explanation": "Live Traffic Status Unknown — API Unavailable / Key Expired"}

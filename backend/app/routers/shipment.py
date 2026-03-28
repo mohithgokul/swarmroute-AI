@@ -59,10 +59,13 @@ def get_shipments(user_email: str = ""):
                 "path": []
             }]
             
+        state_src = f"{src.get('state')}, " if src.get('state') and src.get('state') != 'Unknown' else ""
+        state_dest = f"{dest.get('state')}, " if dest.get('state') and dest.get('state') != 'Unknown' else ""
+        
         results.append({
             "id": shipment_id,
-            "source": f"{src.get('city', '')}, {src.get('country', '')}",
-            "destination": f"{dest.get('city', '')}, {dest.get('country', '')}",
+            "source": f"{src.get('city', '')}, {state_src}{src.get('country', '')}",
+            "destination": f"{dest.get('city', '')}, {state_dest}{dest.get('country', '')}",
             "transportMode": r[3],
             "status": 'in-transit',
             "riskScore": parsed_routes[0]["risk"],

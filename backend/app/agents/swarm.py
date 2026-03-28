@@ -63,12 +63,22 @@ def process_shipment(shipment_input):
     
     # 2.9 Explainable AI — Generate intelligent route explanation via Gemini
     from app.services.ai import generate_route_explanation
+    source_str = f"{shipment_input.source.city}, "
+    if hasattr(shipment_input.source, 'state') and getattr(shipment_input.source, 'state') and getattr(shipment_input.source, 'state') != 'Unknown':
+        source_str += f"{shipment_input.source.state}, "
+    source_str += shipment_input.source.country
+        
+    dest_str = f"{shipment_input.destination.city}, "
+    if hasattr(shipment_input.destination, 'state') and getattr(shipment_input.destination, 'state') and getattr(shipment_input.destination, 'state') != 'Unknown':
+        dest_str += f"{shipment_input.destination.state}, "
+    dest_str += shipment_input.destination.country
+
     ai_reasons = generate_route_explanation(
         agents_data=agents_data,
         best_route=best_route,
         routes=optimized_routes,
-        source=f"{shipment_input.source.city}, {shipment_input.source.country}",
-        destination=f"{shipment_input.destination.city}, {shipment_input.destination.country}",
+        source=source_str,
+        destination=dest_str,
         risk_score=base_aggregated_risk
     )
     

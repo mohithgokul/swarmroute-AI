@@ -70,7 +70,7 @@ Respond ONLY in this exact JSON format, no markdown:
         result = json.loads(clean)
         return {"score": min(1.0, max(0.0, float(result["score"]))), "reason": result.get("reason", "")}
     except Exception:
-        return {"score": 0.5, "reason": "AI parsing fallback — moderate risk assumed"}
+        return {"score": 0.5, "reason": "Live AI Parsing Unavailable — Status Unknown"}
 
 
 def generate_route_explanation(agents_data: list, best_route: dict, routes: list, 
@@ -161,17 +161,21 @@ Respond ONLY in this exact JSON format, no markdown:
 def plan_shipment_context(source: str, destination: str, departure: str, deadline: str, mode: str) -> dict:
     """ Uses Gemini to extract and properly geocode origin and destination using context. """
     import urllib.parse
-    prompt = f"""You are a logistics global geocoder. 
-Given the following shipment details:
-Source: {source}
-Destination: {destination}
-Mode: {mode}
+    prompt = f"""You are an advanced global logistics AI and geocoder. 
+The user wants to ship goods from '{source}' to '{destination}' via '{mode}' transport.
 
-Identify the precise city, country, and approximate latitude/longitude for both locations. 
+Your tasks:
+1. Identify the exact City, State/Province, and Country for both the source and destination. Resolve any ambiguity based on global knowledge (e.g., 'New York' is in New York state, United States, not Japan).
+2. Provide precise geographic coordinates (latitude and longitude) for both locations.
+3. Suggest 2-3 possible high-level routing options between these locations (e.g., 'Direct Air Freight', 'Pacific Ocean Route', 'Transcontinental Highway').
+
 Respond ONLY in this exact JSON format (no markdown, no backticks, no extra text):
 {{
-  "source": {{"city": "CityName", "country": "CountryName", "lat": 0.0, "lon": 0.0}},
-  "destination": {{"city": "CityName", "country": "CountryName", "lat": 0.0, "lon": 0.0}}
+  "source": {{"city": "CityName", "state": "StateName", "country": "CountryName", "lat": 0.0, "lon": 0.0}},
+  "destination": {{"city": "CityName", "state": "StateName", "country": "CountryName", "lat": 0.0, "lon": 0.0}},
+  "possible_routes": [
+    {{"name": "Route 1", "description": "Description of route 1"}}
+  ]
 }}"""
     
     raw = ask_gemini(prompt, "")
@@ -185,20 +189,25 @@ Respond ONLY in this exact JSON format (no markdown, no backticks, no extra text
         
     # Free OpenStreetMap Geocoding Fallback if Gemini is unavailable
     def fetch_nom(q):
+        import re
+        q_norm = re.sub(r'(?i)new\s*york', 'New York', q)
         try:
-            url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=1&accept-language=en"
+            url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q_norm)}&format=json&limit=1&accept-language=en"
             req = urllib.request.Request(url, headers={"User-Agent": "SwarmRouteAI-Local/1.0"})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read().decode())
                 if data:
                     display_name = data[0].get("display_name", "")
-                    country = display_name.split(",")[-1].strip() if "," in display_name else "India"
-                    return {"city": data[0].get("name", q), "country": country, "lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+                    parts = [p.strip() for p in display_name.split(",")]
+                    country = parts[-1] if len(parts) > 0 else "Unknown"
+                    state = parts[-2] if len(parts) > 1 else "Unknown"
+                    return {"city": data[0].get("name", q), "state": state, "country": country, "lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
         except Exception:
             pass
-        return {"city": q, "country": "Unknown", "lat": 0.0, "lon": 0.0}
+        return {"city": q, "state": "Unknown", "country": "Unknown", "lat": 0.0, "lon": 0.0}
 
     return {
         "source": fetch_nom(source),
-        "destination": fetch_nom(destination)
+        "destination": fetch_nom(destination),
+        "possible_routes": []
     }

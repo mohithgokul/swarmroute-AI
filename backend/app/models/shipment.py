@@ -4,6 +4,7 @@ from datetime import datetime
 
 class Location(BaseModel):
     city: str
+    state: Optional[str] = None
     country: str
     lat: Optional[float] = None
     lon: Optional[float] = None

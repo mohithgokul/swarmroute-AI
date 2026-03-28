@@ -58,14 +58,23 @@ const CreateShipment = () => {
       }, 600);
 
       // intelligent single API call to Gemini powered endpoint
+      const safeIsoDate = (dString: string) => {
+        try {
+          const d = new Date(dString || Date.now());
+          return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+        } catch {
+          return new Date().toISOString();
+        }
+      };
+
       const payload = {
         user_email: useStore.getState().user?.email || "anonymous@swarmroute.ai",
         source_query: form.source,
         destination_query: form.destination,
         mode: form.transportMode,
         shipment_type: form.shipmentType || 'General',
-        departure_time: new Date(form.departureTime || Date.now()).toISOString(),
-        deadline: new Date(form.deliveryDeadline || Date.now()).toISOString()
+        departure_time: safeIsoDate(form.departureTime),
+        deadline: safeIsoDate(form.deliveryDeadline)
       };
 
       const res = await fetch("http://localhost:8000/api/shipments/intelligent", {

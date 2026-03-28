@@ -55,12 +55,4 @@ def get_risk(port_info="", lat=None, lon=None):
             print(f"⚠️ AISStream Network Error / Fallback Triggered: {e}")
             pass 
             
-    # Intelligent simulation fallback for maritime environments
-    scenarios = [
-        (0.1, f"Ocean transit proceeding normally. {port_info} port wait time: <2 hours."),
-        (0.3, "Minor mechanical maintenance required mid-voyage. Speed slightly reduced."),
-        (0.6, f"Heavy maritime traffic near {port_info} terminal. Tracking 2-day delays. 🚢"),
-        (0.9, "High-risk rough swell pattern detected in ocean lane! 🌊")
-    ]
-    choice = random.choice(scenarios)
-    return {"module": "Maritime", "risk_score": choice[0], "explanation": choice[1]}
+    return {"module": "Maritime", "risk_score": 0.5, "explanation": "Live Maritime API Unreachable — No Data"}

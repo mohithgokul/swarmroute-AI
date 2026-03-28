@@ -39,12 +39,4 @@ def get_risk(query="logistics port strike disrupt"):
             print(f"⚠️ News API Error / Fallback Triggered: {e}")
             pass
 
-    # Intelligent Mock Fallback
-    scenarios = [
-        (0.0, "Global intelligence reports clear transit lanes"),
-        (0.3, "Minor border-patrol checks delaying timeline slightly"),
-        (0.6, "Protests reported near primary transit hub 📰"),
-        (0.9, "Immediate port closure due to worker strike 🚢")
-    ]
-    choice = random.choice(scenarios)
-    return {"module": "Geopolitics", "risk_score": choice[0], "explanation": choice[1]}
+    return {"module": "Geopolitics", "risk_score": 0.5, "explanation": "Live News API Unreachable — No Data"}

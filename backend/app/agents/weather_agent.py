@@ -28,4 +28,4 @@ def get_risk(lat=51.51, lon=-0.13):
         return {"module": "Weather", "risk_score": min(risk_score, 1.0), "explanation": explanation}
     except Exception as e:
         # Fallback if connection fails
-        return {"module": "Weather", "risk_score": 0.2, "explanation": "Normal skies"}
+        return {"module": "Weather", "risk_score": 0.5, "explanation": "Live Weather Status Unknown — API Unavailable"}
