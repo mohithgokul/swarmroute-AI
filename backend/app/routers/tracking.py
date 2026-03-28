@@ -3,9 +3,8 @@ import asyncio
 from datetime import datetime
 from app.agents import weather_agent, traffic_agent, news_agent
 from app.services import db
-import sqlite3
 import json
-from app.services.db import DB_FILE
+from app.services.db import get_db_connection
 
 router = APIRouter()
 
@@ -15,9 +14,9 @@ async def live_tracking(websocket: WebSocket, shipment_id: str):
     
     try:
         # Secure properties from database
-        conn = sqlite3.connect(DB_FILE)
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT source, destination, mode FROM shipments WHERE shipment_id = ?", (shipment_id,))
+        cursor.execute("SELECT source, destination, mode FROM shipments WHERE shipment_id = %s", (shipment_id,))
         row = cursor.fetchone()
         conn.close()
 

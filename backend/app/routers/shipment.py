@@ -1,21 +1,20 @@
 from fastapi import APIRouter
 from app.models.shipment import ShipmentInput, RouteResult
 from app.agents import swarm
-import sqlite3
 import json
 import math
-from app.services.db import DB_FILE
+from app.services.db import get_db_connection
 
 router = APIRouter()
 
 @router.get("/")
 def get_shipments(user_email: str = ""):
     """Fetches user-specific real database shipments and reconstructs geometric routes"""
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     if user_email:
-        cursor.execute('SELECT shipment_id, source, destination, mode, status FROM shipments WHERE user_email = ? ORDER BY shipment_id DESC', (user_email,))
+        cursor.execute('SELECT shipment_id, source, destination, mode, status FROM shipments WHERE user_email = %s ORDER BY shipment_id DESC', (user_email,))
     else:
         cursor.execute('SELECT shipment_id, source, destination, mode, status FROM shipments ORDER BY shipment_id DESC')
     rows = cursor.fetchall()
@@ -27,7 +26,7 @@ def get_shipments(user_email: str = ""):
         dest = json.loads(r[2])
         
         # Pull associated Routes back out of DB
-        cursor.execute('SELECT route_id, route_type, distance, time_hours, cost, risk, path FROM routes WHERE shipment_id = ? ORDER BY cost ASC', (shipment_id,))
+        cursor.execute('SELECT route_id, route_type, distance, time_hours, cost, risk, path FROM routes WHERE shipment_id = %s ORDER BY cost ASC', (shipment_id,))
         route_rows = cursor.fetchall()
         
         parsed_routes = []

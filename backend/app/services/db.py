@@ -1,11 +1,14 @@
-import sqlite3
+import psycopg2
 import json
 import os
 
-DB_FILE = "swarmroute.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@localhost:5432/postgres")
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -25,8 +28,11 @@ def init_db():
     ''')
     
     # Seamless Migration if the database was already created in last steps
-    cursor.execute("PRAGMA table_info(shipments)")
-    columns = [col[1] for col in cursor.fetchall()]
+    cursor.execute("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name='shipments'
+    """)
+    columns = [row[0] for row in cursor.fetchall()]
     if "user_email" not in columns:
         cursor.execute("ALTER TABLE shipments ADD COLUMN user_email TEXT")
         cursor.execute("UPDATE shipments SET user_email = 'operator@swarmroute.ai' WHERE user_email IS NULL")
@@ -43,14 +49,17 @@ def init_db():
             route_type TEXT
         )
     ''')
-    cursor.execute("PRAGMA table_info(routes)")
-    route_columns = [col[1] for col in cursor.fetchall()]
+    cursor.execute("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name='routes'
+    """)
+    route_columns = [row[0] for row in cursor.fetchall()]
     if "route_type" not in route_columns:
         cursor.execute("ALTER TABLE routes ADD COLUMN route_type TEXT DEFAULT 'Primary'")
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS risk_logs (
-            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            log_id SERIAL PRIMARY KEY,
             shipment_id TEXT,
             timestamp TEXT,
             risk_score REAL,
@@ -62,55 +71,75 @@ def init_db():
     conn.close()
 
 def create_user(email, password):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     success = False
     try:
-        cursor.execute('INSERT INTO users VALUES (?, ?)', (email, password))
+        cursor.execute('INSERT INTO users VALUES (%s, %s)', (email, password))
         conn.commit()
         success = True
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         pass
+    except Exception as e:
+        print("Registration err:", e)
     finally:
         conn.close()
     return success
 
 def get_user(email):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT email, password FROM users WHERE email = ?', (email,))
+    cursor.execute('SELECT email, password FROM users WHERE email = %s', (email,))
     row = cursor.fetchone()
     conn.close()
     return {"email": row[0], "password": row[1]} if row else None
 
 def save_shipment(shipment_id, user_email, source, destination, mode, status="Pending"):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('INSERT OR REPLACE INTO shipments (shipment_id, user_email, source, destination, mode, status) VALUES (?, ?, ?, ?, ?, ?)',
-                   (shipment_id, user_email, json.dumps(source), json.dumps(destination), mode, status))
+    cursor.execute('''
+        INSERT INTO shipments (shipment_id, user_email, source, destination, mode, status)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (shipment_id) DO UPDATE SET
+            user_email = EXCLUDED.user_email,
+            source = EXCLUDED.source,
+            destination = EXCLUDED.destination,
+            mode = EXCLUDED.mode,
+            status = EXCLUDED.status
+    ''', (shipment_id, user_email, json.dumps(source), json.dumps(destination), mode, status))
     conn.commit()
     conn.close()
 
 def save_routes(routes_data):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     for r in routes_data:
         cursor.execute('''
-            INSERT OR REPLACE INTO routes (route_id, shipment_id, path, distance, risk, time_hours, cost, route_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO routes (route_id, shipment_id, path, distance, risk, time_hours, cost, route_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (route_id) DO UPDATE SET
+                shipment_id = EXCLUDED.shipment_id,
+                path = EXCLUDED.path,
+                distance = EXCLUDED.distance,
+                risk = EXCLUDED.risk,
+                time_hours = EXCLUDED.time_hours,
+                cost = EXCLUDED.cost,
+                route_type = EXCLUDED.route_type
         ''', (r['route_id'], r.get('shipment_id', ''), json.dumps(r.get('path', [])), r.get('distance', 0), r.get('risk', 0), r.get('time_hours', 1), r.get('cost', 100), r.get('type', 'Primary')))
     conn.commit()
     conn.close()
 
 def log_risk(shipment_id, timestamp, risk_score, event, explanation):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO risk_logs (shipment_id, timestamp, risk_score, event, explanation)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
     ''', (shipment_id, timestamp, risk_score, event, explanation))
     conn.commit()
     conn.close()
 
-# Initialize DB on import
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"PostgreSQL initialization failed. This is expected during Docker build without env vars. error: {e}")

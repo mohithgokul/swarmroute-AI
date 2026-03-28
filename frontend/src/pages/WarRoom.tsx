@@ -58,7 +58,8 @@ const WarRoom = () => {
       addTimelineEvent(id, { id: generateId(), title: 'Shipment Departed', description: 'Left origin', icon: '🚀', timestamp: new Date(), type: 'departure' });
     }
 
-    const ws = new WebSocket(`ws://localhost:8000/api/tracking/live/${id}`);
+    const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
+    const ws = new WebSocket(`${WS_URL}/api/tracking/live/${id}`);
 
     ws.onmessage = (event) => {
       try {

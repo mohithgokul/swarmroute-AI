@@ -31,7 +31,8 @@ const Dashboard = () => {
   useEffect(() => {
     const userEmail = useStore.getState().user?.email || "";
     // Fetch live shipments from backend API restricted to logged-in user
-    fetch(`http://localhost:8000/api/shipments/?user_email=${encodeURIComponent(userEmail)}`)
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    fetch(`${API_URL}/api/shipments/?user_email=${encodeURIComponent(userEmail)}`)
       .then(res => res.json())
       .then(data => {
         if (data.shipments) {
